@@ -51,7 +51,7 @@ const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + 
 const lead = (t) => (LEADS.includes(t.lead) ? t.lead : 0);
 
 const ALLOWED = /^https:\/\/([a-z0-9-]+\.)*(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com|push\.api\.chromium\.org)\//i;
-let subs = (await api('push_subs?select=endpoint,user_id,space_id,p256dh,auth,device'))
+let subs = (await api('tfx_push_subs?select=endpoint,user_id,space_id,p256dh,auth,device'))
   .filter((s) => ALLOWED.test(s.endpoint) && s.p256dh && s.auth);
 
 let jobs = [];
@@ -59,10 +59,10 @@ if (TEST) {
   jobs = subs.map((s) => ({ sub: s, msg: { title: 'TaskForce X', body: 'Testmelding: pushmeldingen werken.', tag: 'test' } }));
 } else {
   const [tasks, done, skip, sent] = await Promise.all([
-    api('tasks?select=id,space_id,name,date,days,time,lead,assignee&notify=is.true&time=not.is.null'),
-    api(`task_done?select=task_id&day=eq.${D}`),
-    api(`task_skip?select=task_id&day=eq.${D}`),
-    api(`sent?select=task_id&day=eq.${D}`)
+    api('tfx_tasks?select=id,space_id,name,date,days,time,lead,assignee&notify=is.true&time=not.is.null'),
+    api(`tfx_done?select=task_id&day=eq.${D}`),
+    api(`tfx_skip?select=task_id&day=eq.${D}`),
+    api(`tfx_sent?select=task_id&day=eq.${D}`)
   ]);
   const doneIds = new Set(done.map((r) => r.task_id));
   const skipIds = new Set(skip.map((r) => r.task_id));
@@ -84,7 +84,7 @@ if (TEST) {
     for (const s of subs) if (s.space_id === t.space_id && (!t.assignee || t.assignee === s.user_id)) jobs.push({ sub: s, msg, task: t });
   }
   if (due.length) {
-    await api('sent', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(due.map((t) => ({ task_id: t.id, day: D }))) });
+    await api('tfx_sent', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(due.map((t) => ({ task_id: t.id, day: D }))) });
   }
 }
 
@@ -105,6 +105,6 @@ for (const { sub, msg } of jobs) {
 console.log(`${delivered} keer afgeleverd`);
 
 // Opruimen: verlopen toestellen en oude verzendlog
-for (const ep of gone) await api(`push_subs?endpoint=eq.${encodeURIComponent(ep)}`, { method: 'DELETE' });
+for (const ep of gone) await api(`tfx_push_subs?endpoint=eq.${encodeURIComponent(ep)}`, { method: 'DELETE' });
 const cutoff = new Date(Date.parse(D) - 7 * 864e5).toISOString().slice(0, 10);
-await api(`sent?day=lt.${cutoff}`, { method: 'DELETE' });
+await api(`tfx_sent?day=lt.${cutoff}`, { method: 'DELETE' });

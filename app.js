@@ -120,11 +120,11 @@
     var from = addDays(todayKey(), -30);
     setSync('busy');
     return Promise.all([
-      sb.from('spaces').select('id,name,invite_code,created_by').eq('id', space.id).maybeSingle(),
-      sb.from('members').select('user_id,name,joined_at').eq('space_id', space.id).order('joined_at'),
-      sb.from('tasks').select('*').eq('space_id', space.id),
-      sb.from('task_done').select('task_id,day,done_by').eq('space_id', space.id).gte('day', from),
-      sb.from('task_skip').select('task_id,day').eq('space_id', space.id).gte('day', from)
+      sb.from('tfx_spaces').select('id,name,invite_code,created_by').eq('id', space.id).maybeSingle(),
+      sb.from('tfx_members').select('user_id,name,joined_at').eq('space_id', space.id).order('joined_at'),
+      sb.from('tfx_tasks').select('*').eq('space_id', space.id),
+      sb.from('tfx_done').select('task_id,day,done_by').eq('space_id', space.id).gte('day', from),
+      sb.from('tfx_skip').select('task_id,day').eq('space_id', space.id).gte('day', from)
     ]).then(function (res) {
       res.forEach(function (r) { if (r.error) throw r.error; });
       if (!res[0].data) { leftSpace(); return; }
@@ -145,7 +145,7 @@
     if (channel) sb.removeChannel(channel);
     var f = 'space_id=eq.' + space.id;
     channel = sb.channel('space-' + space.id);
-    ['tasks', 'task_done', 'task_skip', 'members'].forEach(function (tbl) {
+    ['tfx_tasks', 'tfx_done', 'tfx_skip', 'tfx_members'].forEach(function (tbl) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: f }, function () {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 400);
       });
@@ -161,7 +161,7 @@
   /* ---------- acties op de database ---------- */
   function addTask(t) {
     S.tasks.push(t); render();
-    return q(sb.from('tasks').insert(toRow(t)), 'Taak niet opgeslagen');
+    return q(sb.from('tfx_tasks').insert(toRow(t)), 'Taak niet opgeslagen');
   }
   function updateTask(t, fields) {
     var row = {}, map = { date: 'date', days: 'days', time: 'time', notify: 'notify', lead: 'lead', from: 'from_date', assignee: 'assignee', name: 'name' };
@@ -170,22 +170,22 @@
     Object.keys(fields).forEach(function (k) { var c = map[k]; row[c] = full[c]; });
     if ('days' in fields) row.date = full.date;
     render();
-    return q(sb.from('tasks').update(row).eq('id', t.id), 'Wijziging niet opgeslagen');
+    return q(sb.from('tfx_tasks').update(row).eq('id', t.id), 'Wijziging niet opgeslagen');
   }
   function setDone(t, k, on) {
     if (on) { addTo('done', k, t.id); doneByMap[t.id + '|' + k] = me; } else removeFrom('done', k, t.id);
     render();
     return on
-      ? q(sb.from('task_done').upsert({ task_id: t.id, day: k, space_id: space.id }, { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Afvinken niet opgeslagen')
-      : q(sb.from('task_done').delete().eq('task_id', t.id).eq('day', k), 'Niet opgeslagen');
+      ? q(sb.from('tfx_done').upsert({ task_id: t.id, day: k, space_id: space.id }, { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Afvinken niet opgeslagen')
+      : q(sb.from('tfx_done').delete().eq('task_id', t.id).eq('day', k), 'Niet opgeslagen');
   }
   function setSkip(ids, k, on) {
     ids.forEach(function (id) { if (on) addTo('skip', k, id); else removeFrom('skip', k, id); });
     render();
     if (!ids.length) return Promise.resolve();
     return on
-      ? q(sb.from('task_skip').upsert(ids.map(function (id) { return { task_id: id, day: k, space_id: space.id }; }), { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Niet opgeslagen')
-      : q(sb.from('task_skip').delete().eq('day', k).in('task_id', ids), 'Niet opgeslagen');
+      ? q(sb.from('tfx_skip').upsert(ids.map(function (id) { return { task_id: id, day: k, space_id: space.id }; }), { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Niet opgeslagen')
+      : q(sb.from('tfx_skip').delete().eq('day', k).in('task_id', ids), 'Niet opgeslagen');
   }
   // Verwijderde taken (met afvinkjes) bewaren voor "Ongedaan maken"
   function deleteTasks(list) {
@@ -195,15 +195,15 @@
     S.tasks = S.tasks.filter(function (t) { return ids.indexOf(t.id) < 0; });
     Object.keys(S.done).forEach(function (k) { S.done[k] = S.done[k].filter(function (id) { return ids.indexOf(id) < 0; }); });
     render();
-    var p = ids.length ? q(sb.from('tasks').delete().in('id', ids), 'Verwijderen mislukt') : Promise.resolve();
+    var p = ids.length ? q(sb.from('tfx_tasks').delete().in('id', ids), 'Verwijderen mislukt') : Promise.resolve();
     return function undo() {
       list.forEach(function (t) { S.tasks.push(t); });
       doneRows.forEach(function (r) { addTo('done', r.day, r.task_id); });
       render();
       p.then(function () {
-        return q(sb.from('tasks').insert(list.map(toRow)), 'Herstellen mislukt');
+        return q(sb.from('tfx_tasks').insert(list.map(toRow)), 'Herstellen mislukt');
       }).then(function () {
-        if (doneRows.length) return q(sb.from('task_done').insert(doneRows), 'Herstellen mislukt');
+        if (doneRows.length) return q(sb.from('tfx_done').insert(doneRows), 'Herstellen mislukt');
       }).catch(function () {});
     };
   }
@@ -217,7 +217,7 @@
     rolling = true;
     Promise.all(late.map(function (t) {
       var from = t.from || t.date; t.from = from; t.date = t0;
-      return sb.from('tasks').update({ date: t0, from_date: from }).eq('id', t.id).lt('date', t0);
+      return sb.from('tfx_tasks').update({ date: t0, from_date: from }).eq('id', t.id).lt('date', t0);
     })).then(function () { rolling = false; render(); }).catch(function () { rolling = false; });
   }
 
@@ -579,14 +579,14 @@
     if (s === 'edit') { var t = find(b.dataset.id); if (!t) return; closeSheet(); go(nextOccurrence(t)); openId = t.id; render(); var r = document.querySelector('.task-item.open'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     if (s === 'share') { shareInvite(); return; }
     if (s === 'newlink') {
-      sb.rpc('new_invite', { s: space.id }).then(function (r) {
+      sb.rpc('tfx_new_invite', { s: space.id }).then(function (r) {
         if (r.error) throw r.error; space.invite_code = r.data; msg('Nieuwe link gemaakt. De oude werkt niet meer.');
       }).catch(function () { msg('Dat lukte niet. Probeer het opnieuw.'); });
       return;
     }
     if (s === 'name') {
       var v = $('my-name').value.replace(/\s+/g, ' ').trim().slice(0, 40); if (!v) return;
-      sb.from('members').update({ name: v }).eq('space_id', space.id).eq('user_id', me).then(function (r) {
+      sb.from('tfx_members').update({ name: v }).eq('space_id', space.id).eq('user_id', me).then(function (r) {
         if (r.error) throw r.error; member(me).name = v; LS.set('tfx-name', v); msg('Naam opgeslagen.'); render();
       }).catch(function () { msg('Opslaan lukte niet.'); });
       return;
@@ -609,7 +609,7 @@
       });
     }).then(function (s) {
       msg('Toestel aanmelden…');
-      return sb.from('push_subs').upsert({
+      return sb.from('tfx_push_subs').upsert({
         endpoint: s.endpoint, space_id: space.id, user_id: me,
         p256dh: b64url(s.getKey('p256dh')), auth: b64url(s.getKey('auth')), device: deviceName()
       }, { onConflict: 'endpoint' });
@@ -623,7 +623,7 @@
     var endpoint;
     navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
       .then(function (s) { if (!s) return; endpoint = s.endpoint; return s.unsubscribe(); })
-      .then(function () { if (endpoint) return sb.from('push_subs').delete().eq('endpoint', endpoint); })
+      .then(function () { if (endpoint) return sb.from('tfx_push_subs').delete().eq('endpoint', endpoint); })
       .then(function () { pushInfo.subscribed = false; msg('Meldingen staan uit op dit toestel.'); })
       .catch(function () { msg('Afmelden is mislukt.'); });
   }
@@ -660,14 +660,14 @@
       var n = $('ob-name').value.trim(), sn = $('ob-space').value.trim();
       if (!n) { $('ob-name').focus(); return; }
       e.target.disabled = true; LS.set('tfx-name', n);
-      sb.rpc('create_space', { space_name: sn || 'Onze agenda', my_name: n }).then(function (r) {
+      sb.rpc('tfx_create_space', { space_name: sn || 'Onze agenda', my_name: n }).then(function (r) {
         if (r.error) throw r.error; enterSpace(r.data.id);
       }).catch(function (err) { showOnboard('welcome', 'Dat lukte niet: ' + (err.message || 'probeer het opnieuw')); });
     }
     if (e.target.id === 'ob-join') {
       var nm = $('ob-name').value.trim(); if (!nm) { $('ob-name').focus(); return; }
       e.target.disabled = true; LS.set('tfx-name', nm);
-      sb.rpc('join_space', { code: pendingInvite, my_name: nm }).then(function (r) {
+      sb.rpc('tfx_join_space', { code: pendingInvite, my_name: nm }).then(function (r) {
         if (r.error) throw r.error; pendingInvite = null; enterSpace(r.data, true);
       }).catch(function (err) { showOnboard('welcome', err.message || 'Deze uitnodiging werkt niet.'); });
     }
@@ -688,7 +688,7 @@
     if ((m = /^#join=([a-f0-9]{32})$/.exec(h))) {
       clearHash(); pendingInvite = m[1];
       showOnboard('loading');
-      sb.rpc('invite_info', { code: pendingInvite }).then(function (r) {
+      sb.rpc('tfx_invite_info', { code: pendingInvite }).then(function (r) {
         if (r.error) throw r.error;
         if (!r.data || !r.data.length) { pendingInvite = null; return space ? (showMain(), toast('Deze uitnodiging is niet meer geldig')) : showOnboard('welcome', 'Deze uitnodiging is niet (meer) geldig. Vraag om een nieuwe link.'); }
         var info = r.data[0];
@@ -733,7 +733,7 @@
         return load().then(function () { if (hash) handleLink(hash); });
       }
       // Nog geen agenda op dit toestel: misschien al lid van een agenda (bijv. na herinstallatie)
-      return sb.from('members').select('space_id').eq('user_id', me).limit(1).then(function (r) {
+      return sb.from('tfx_members').select('space_id').eq('user_id', me).limit(1).then(function (r) {
         if (r.data && r.data.length) enterSpace(r.data[0].space_id);
         else showOnboard('welcome');
       });

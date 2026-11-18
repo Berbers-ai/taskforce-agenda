@@ -2,6 +2,6 @@
   "vapidPublicKey": "BNJUmjwS5IlaOCnebUUbDJRvDZVOkX0szxzztdTfVlDX5iiyp7yfIZYR8c7Yb3dN7QtCHs8ZByISuEHWtQ29uSY",
   "timeZone": "Europe/Amsterdam",
   "contact": "mailto:noreply@berbers-ai.github.io",
-  "supabaseUrl": "",
-  "supabaseKey": ""
+  "supabaseUrl": "https://bdotejyqbtjhgczwzrzh.supabase.co",
+  "supabaseKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkb3RlanlxYnRqaGdjend6cnpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2MTY1ODgsImV4cCI6MjA5MDE5MjU4OH0.cHjdF-BXHWxm9mO-5GtXbvpFYux4n1XpXcTIuElroco"
 }

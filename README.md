@@ -10,9 +10,9 @@ Iemand laten meedoen gaat met een uitnodigingslink: openen, naam invullen, klaar
   geheime Supabase-sleutel en stuurt web-push naar de toestellen van de juiste persoon.
 
 ## Instellen
-1. Supabase-project → Authentication → Sign In / Providers → **Allow anonymous sign-ins** aan.
+1. Supabase-project (hetzelfde als de vakantie-app) → Authentication → Sign In / Providers → **Allow anonymous sign-ins** aan.
 2. SQL Editor → plak `supabase/schema.sql` → Run.
-3. Vul in `config.json` de `supabaseUrl` en `supabaseKey` (publishable key) in.
+3. `config.json` bevat de `supabaseUrl` en de publieke `supabaseKey` van dat project.
 4. Repository secrets: `SUPABASE_SECRET_KEY` (secret key) en `VAPID_PRIVATE_KEY` (publieke sleutel staat in `config.json`).
 5. Settings → Pages → Deploy from branch → `main` / root.
 
