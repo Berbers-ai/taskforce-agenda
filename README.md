@@ -1,6 +1,6 @@
 # TaskForce X
 
-Een installeerbare web-app (PWA) voor terugkerende taken per weekdag, met pushmeldingen.
+Een installeerbare takenlijst (PWA) in de stijl van TaskForce: taken per dag, en per taak een tijdstip, pushmelding en herhaling.
 
 - **App:** GitHub Pages serveert `index.html`, `app.js` en `sw.js`.
 - **Data:** `data/state.json` (taken en afvinkjes) en `data/subscriptions.json` (toestellen die meldingen willen). De app leest en schrijft deze via de GitHub API, met een fine-grained token dat alleen op je toestel staat.
