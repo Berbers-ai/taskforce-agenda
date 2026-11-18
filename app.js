@@ -99,6 +99,8 @@
   }
   function member(id) { return members.filter(function (m) { return m.user_id === id; })[0]; }
   function nameOf(id) { if (id === me) return 'jou'; var m = member(id); return m ? m.name : 'iemand'; }
+  var COLORS = { red: '#ef4444', blue: '#3b82f6', amber: '#f59e0b', violet: '#8b5cf6', teal: '#14b8a6', pink: '#ec4899' };
+  function colorOf(id) { var m = member(id); return m && COLORS[m.color] || '#94a3b8'; }
   function initial(id) { var m = member(id); return m ? m.name.trim().charAt(0).toUpperCase() : '?'; }
   function inviteUrl() { return location.origin + location.pathname + '#join=' + space.invite_code; }
 
@@ -121,7 +123,7 @@
     setSync('busy');
     return Promise.all([
       sb.from('tfx_spaces').select('id,name,invite_code,created_by').eq('id', space.id).maybeSingle(),
-      sb.from('tfx_members').select('user_id,name,joined_at').eq('space_id', space.id).order('joined_at'),
+      sb.from('tfx_members').select('user_id,name,joined_at,color').eq('space_id', space.id).order('joined_at'),
       sb.from('tfx_tasks').select('*').eq('space_id', space.id),
       sb.from('tfx_done').select('task_id,day,done_by').eq('space_id', space.id).gte('day', from),
       sb.from('tfx_skip').select('task_id,day').eq('space_id', space.id).gte('day', from)
@@ -285,12 +287,12 @@
       var sub = '';
       if (t.from && current === t.date) sub = 'Doorgeschoven van ' + shortDate(t.from);
       else if (done && shared) { var who = doneBy(t, current); if (who) sub = 'Afgevinkt door ' + who; }
-      var h = '<div class="task-item' + (t.id === lastAdded ? ' new' : '') + (done ? ' done' : '') + (open || del ? ' open' : '') + '" data-id="' + id + '">' +
+      var h = '<div class="task-item' + (t.id === lastAdded ? ' new' : '') + (done ? ' done' : '') + (open || del ? ' open' : '') + '" data-id="' + id + '"' + (shared && t.created_by && member(t.created_by) ? ' style="box-shadow: inset 3px 0 0 ' + colorOf(t.created_by) + '" title="Toegevoegd door ' + esc(nameOf(t.created_by)) + '"' : '') + '>' +
         '<button class="check' + (done ? ' checked' : '') + '" data-act="toggle" aria-label="' + (done ? 'Niet klaar' : 'Afvinken') + '">' + (done ? ICON.check : '') + '</button>' +
         '<div class="task-main"><span class="task-text" contenteditable="true" spellcheck="false" data-act="text">' + esc(t.name) + '</span>' +
-        (sub ? '<span class="from">' + esc(sub) + '</span>' : '') + '</div>' +
+        (sub ? '<span class="from"' + (sub.indexOf('Afgevinkt door') === 0 ? ' style="color:' + colorOf(doneByMap[t.id + '|' + current]) + '"' : '') + '>' + esc(sub) + '</span>' : '') + '</div>' +
         (t.days.length ? '<span class="rep" title="' + esc(repeatLabel(t.days)) + '">' + ICON.repeat + '</span>' : '') +
-        (shared && t.assignee ? '<button class="who' + (t.assignee === me ? ' me' : '') + '" data-act="panel" title="Voor ' + esc(nameOf(t.assignee)) + '">' + esc(initial(t.assignee)) + '</button>' : '') +
+        (shared && t.assignee ? '<button class="who" style="background:' + colorOf(t.assignee) + '" data-act="panel" title="Voor ' + esc(nameOf(t.assignee)) + '">' + esc(initial(t.assignee)) + '</button>' : '') +
         '<button class="opt' + (t.time ? ' on' : '') + '" data-act="panel" aria-label="Tijdstip en opties" title="Tijdstip en opties">' + ICON.clock + (t.time ? esc(t.time) : '') + '</button>' +
         '<button class="opt' + (hasNotify(t) ? ' on' : '') + '" data-act="bell" aria-label="' + esc(bellTitle) + '" title="' + esc(bellTitle) + '">' + (t.time && !t.notify ? ICON.bellOff : ICON.bell) + '</button>' +
         '<button class="del-btn" data-act="del" aria-label="Verwijderen">✕</button>' +
@@ -312,7 +314,7 @@
     if (members.length > 1) {
       h += '<div class="prow"><span class="plabel">Voor</span><button class="pill' + (!t.assignee ? ' on' : '') + '" data-act="assign" data-who="">Iedereen</button>' +
         members.map(function (m) {
-          return '<button class="pill' + (t.assignee === m.user_id ? ' on' : '') + '" data-act="assign" data-who="' + esc(m.user_id) + '">' + (m.user_id === me ? 'Ik' : esc(m.name)) + '</button>';
+          return '<button class="pill' + (t.assignee === m.user_id ? ' on' : '') + '" data-act="assign" data-who="' + esc(m.user_id) + '"' + (t.assignee === m.user_id ? ' style="background:' + colorOf(m.user_id) + ';border-color:' + colorOf(m.user_id) + '"' : '') + '><span class="dot" style="background:' + colorOf(m.user_id) + '"></span>' + (m.user_id === me ? 'Ik' : esc(m.name)) + '</button>';
         }).join('') + '</div>';
     }
     h += '<div class="prow"><span class="plabel">Tijdstip</span><input type="time" class="time-in" data-act="time" value="' + esc(t.time) + '">' +
@@ -534,7 +536,7 @@
 
     h += '<div class="sec-title">Wie doen er mee</div><div class="card list">';
     members.forEach(function (m) {
-      h += '<div class="mem"><span class="who' + (m.user_id === me ? ' me' : '') + '">' + esc(m.name.charAt(0).toUpperCase()) + '</span>' + esc(m.name) +
+      h += '<div class="mem"><span class="who" style="background:' + (COLORS[m.color] || '#94a3b8') + '">' + esc(m.name.charAt(0).toUpperCase()) + '</span>' + esc(m.name) +
         (m.user_id === me ? ' <span class="you">(jij)</span>' : '') + '</div>';
     });
     h += '</div>';

@@ -18,6 +18,9 @@ create table if not exists public.tfx_members (
   joined_at timestamptz not null default now(),
   primary key (space_id, user_id)
 );
+-- Eigen kleur per persoon: de maker rood, de eerste genodigde blauw, daarna de volgende vrije kleur
+alter table public.tfx_members add column if not exists color text not null default 'blue'
+  check (color in ('red', 'blue', 'amber', 'violet', 'teal', 'pink'));
 
 create table if not exists public.tfx_tasks (
   id uuid primary key default gen_random_uuid(),
@@ -138,7 +141,7 @@ begin
   if auth.uid() is null then raise exception 'Niet ingelogd'; end if;
   if (select count(*) from public.tfx_spaces where created_by = auth.uid()) >= 5 then raise exception 'Te veel agenda''s'; end if;
   insert into public.tfx_spaces (name, created_by) values (left(trim(space_name), 60), auth.uid()) returning * into s;
-  insert into public.tfx_members (space_id, user_id, name) values (s.id, auth.uid(), left(trim(my_name), 40));
+  insert into public.tfx_members (space_id, user_id, name, color) values (s.id, auth.uid(), left(trim(my_name), 40), 'red');
   return s;
 end $$;
 
@@ -151,13 +154,15 @@ $$;
 
 create or replace function public.tfx_join_space(code text, my_name text)
 returns uuid language plpgsql security definer set search_path = '' as $$
-declare sid uuid;
+declare sid uuid; c text;
 begin
   if auth.uid() is null then raise exception 'Niet ingelogd'; end if;
   select id into sid from public.tfx_spaces where invite_code = code;
   if sid is null then raise exception 'Deze uitnodiging is niet (meer) geldig'; end if;
   if (select count(*) from public.tfx_members where space_id = sid) >= 12 then raise exception 'Deze agenda zit vol'; end if;
-  insert into public.tfx_members (space_id, user_id, name) values (sid, auth.uid(), left(trim(my_name), 40))
+  select x into c from unnest(array['blue', 'amber', 'violet', 'teal', 'pink', 'red']) with ordinality as a(x, i)
+   where x not in (select color from public.tfx_members where space_id = sid) order by i limit 1;
+  insert into public.tfx_members (space_id, user_id, name, color) values (sid, auth.uid(), left(trim(my_name), 40), coalesce(c, 'blue'))
   on conflict (space_id, user_id) do update set name = excluded.name;
   return sid;
 end $$;
