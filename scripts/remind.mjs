@@ -42,7 +42,8 @@ const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + 
 const done = (state.done || {})[now.date] || [];
 const sentToday = sent[now.date] || [];
 // Een taak hoort bij vandaag als hij herhaalt op deze weekdag, of eenmalig voor deze datum is.
-const occursToday = (t) => (Array.isArray(t.days) && t.days.length ? t.days.includes(now.weekday) : t.date === now.date);
+const skipped = ((state.skip || {})[now.date]) || [];
+const occursToday = (t) => !skipped.includes(t.id) && (Array.isArray(t.days) && t.days.length ? t.days.includes(now.weekday) : t.date === now.date);
 const due = (state.tasks || []).filter((t) =>
   t && typeof t.id === 'string' && typeof t.time === 'string' && /^\d{2}:\d{2}$/.test(t.time) &&
   t.notify !== false && occursToday(t) &&

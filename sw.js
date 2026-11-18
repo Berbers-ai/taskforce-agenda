@@ -1,5 +1,5 @@
 /* Service worker: offline app-shell en pushmeldingen */
-const CACHE = 'taskforcex-v4';
+const CACHE = 'taskforcex-v5';
 const SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'config.json',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 

@@ -35,7 +35,7 @@
   var KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
   // Valideer alles wat uit de repo of de opslag komt: alleen bekende velden in het juiste formaat.
   function clean(st) {
-    var out = { tasks: [], done: {} };
+    var out = { tasks: [], done: {}, skip: {} };
     if (!st || !Array.isArray(st.tasks)) return out;
     st.tasks.forEach(function (t) {
       if (!t || typeof t.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(t.id)) return;
@@ -54,12 +54,18 @@
     if (st.done && typeof st.done === 'object') Object.keys(st.done).forEach(function (k) {
       if (KEY_RE.test(k) && Array.isArray(st.done[k])) out.done[k] = st.done[k].filter(function (x) { return typeof x === 'string'; });
     });
+    if (st.skip && typeof st.skip === 'object') Object.keys(st.skip).forEach(function (k) {
+      if (KEY_RE.test(k) && Array.isArray(st.skip[k])) out.skip[k] = st.skip[k].filter(function (x) { return typeof x === 'string'; });
+    });
     return out;
   }
   var S = clean(LS.get('rt-state', null));
 
   function find(id) { return S.tasks.filter(function (t) { return t.id === id; })[0]; }
-  function occursOn(t, k) { return t.days.length ? t.days.indexOf(parseKey(k).getDay()) > -1 : t.date === k; }
+  function occursOn(t, k) {
+    if ((S.skip[k] || []).indexOf(t.id) > -1) return false;
+    return t.days.length ? t.days.indexOf(parseKey(k).getDay()) > -1 : t.date === k;
+  }
   function tasksOn(k) {
     return S.tasks.map(function (t, i) { return { t: t, i: i }; })
       .filter(function (x) { return occursOn(x.t, k); })
@@ -82,7 +88,7 @@
   function newId() { return 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
   function prune() {
     var lim21 = addDays(todayKey(), -21), lim60 = addDays(todayKey(), -60);
-    Object.keys(S.done).forEach(function (k) { if (k < lim21 || !S.done[k].length) delete S.done[k]; });
+    ['done', 'skip'].forEach(function (m) { Object.keys(S[m]).forEach(function (k) { if (k < lim21 || !S[m][k].length) delete S[m][k]; }); });
     S.tasks = S.tasks.filter(function (t) { return t.days.length || t.date >= lim60; });
   }
 
@@ -162,7 +168,7 @@
   }
 
   /* ---------- weergave ---------- */
-  var current = todayKey(), openId = null, confirmDel = null, focusTime = false;
+  var current = todayKey(), openId = null, confirmDel = null, focusTime = false, confirmAll = false, confirmTimer = null;
 
   function renderStrip() {
     var d = parseKey(current), mon = new Date(d); mon.setDate(d.getDate() - (d.getDay() + 6) % 7);
@@ -184,11 +190,11 @@
   }
   function renderSummary() {
     var list = tasksOn(current), done = list.filter(function (t) { return isDone(t, current); });
-    var clearable = done.some(function (t) { return !t.days.length; });
     if (!list.length) { $('summary').innerHTML = ''; return; }
     var open = list.length - done.length;
     $('summary').innerHTML = '<span class="summary-text">' + (open ? '<strong>' + open + '</strong> open' : '🎉 Alles klaar') + (done.length ? ' &middot; ' + done.length + ' voltooid' : '') + '</span>' +
-      (clearable ? '<button class="clear-btn" data-act="clear">Verwijder voltooide</button>' : '');
+      '<span class="clear-row">' + (done.length ? '<button class="clear-btn" data-act="clear">Verwijder voltooide</button><span class="sep">·</span>' : '') +
+      '<button class="clear-btn' + (confirmAll ? ' confirm' : '') + '" data-act="all">' + (confirmAll ? 'Zeker? Tik nogmaals' : 'Alles verwijderen') + '</button></span>';
   }
   function renderTasks() {
     var items = tasksOn(current);
@@ -231,7 +237,7 @@
   function render() { renderStrip(); renderHeader(); renderTasks(); renderSummary(); }
 
   /* ---------- acties ---------- */
-  function go(k) { current = k; openId = null; confirmDel = null; render(); }
+  function go(k) { current = k; openId = null; confirmDel = null; confirmAll = false; render(); }
 
   $('prev').onclick = function () { go(addDays(current, -1)); };
   $('next').onclick = function () { go(addDays(current, 1)); };
@@ -254,12 +260,42 @@
   });
   $('add-input').addEventListener('blur', function () { setTimeout(function () { $('add-tip').textContent = ''; }, 2500); });
 
-  $('summary').onclick = function (e) {
-    if (!e.target.closest('[data-act=clear]')) return;
-    var doneIds = S.done[current] || [];
-    S.tasks = S.tasks.filter(function (t) { return t.days.length || t.date !== current || doneIds.indexOf(t.id) < 0; });
+  // Verwijderen per dag. Eenmalige taken gaan weg; herhalende taken worden alleen voor deze dag overgeslagen.
+  function removeForDay(ids) {
+    var snapshot = JSON.stringify(S);
+    S.tasks = S.tasks.filter(function (t) { return !(ids.indexOf(t.id) > -1 && !t.days.length); });
+    var rec = ids.filter(function (id) { var t = find(id); return t && t.days.length; });
+    if (rec.length) S.skip[current] = (S.skip[current] || []).concat(rec);
+    if (S.done[current]) S.done[current] = S.done[current].filter(function (id) { return ids.indexOf(id) < 0; });
+    openId = null; confirmDel = null; confirmAll = false;
     save(); render();
+    toast(ids.length === 1 ? '1 taak verwijderd' : ids.length + ' taken verwijderd', function () { S = clean(JSON.parse(snapshot)); save(); render(); });
+  }
+  $('summary').onclick = function (e) {
+    var b = e.target.closest('[data-act]'); if (!b) return;
+    var list = tasksOn(current);
+    if (b.dataset.act === 'clear') removeForDay(list.filter(function (t) { return isDone(t, current); }).map(function (t) { return t.id; }));
+    if (b.dataset.act === 'all') {
+      if (!confirmAll) {
+        confirmAll = true; renderSummary();
+        clearTimeout(confirmTimer); confirmTimer = setTimeout(function () { confirmAll = false; renderSummary(); }, 4000);
+        return;
+      }
+      clearTimeout(confirmTimer);
+      removeForDay(list.map(function (t) { return t.id; }));
+    }
   };
+
+  // Melding onderin met "Ongedaan maken"
+  var toastTimer = null;
+  function toast(text, undo) {
+    var el = $('toast');
+    el.innerHTML = '<span>' + esc(text) + '</span>' + (undo ? '<button class="toast-undo">Ongedaan maken</button>' : '');
+    el.classList.add('show');
+    var btn = el.querySelector('button');
+    if (btn) btn.onclick = function () { el.classList.remove('show'); undo(); };
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.classList.remove('show'); }, 6000);
+  }
 
   $('task-list').addEventListener('click', function (e) {
     var b = e.target.closest('[data-act]'); if (!b || b.dataset.act === 'text' || b.dataset.act === 'time') return;
