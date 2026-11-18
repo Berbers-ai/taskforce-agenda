@@ -1,6 +1,6 @@
 {
-  "name": "Terugkerende taken",
-  "short_name": "Taken",
+  "name": "TaskForce X",
+  "short_name": "TaskForce X",
   "description": "Terugkerende taken per weekdag, met herinneringen.",
   "start_url": "./",
   "scope": "./",

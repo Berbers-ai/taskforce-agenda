@@ -1,4 +1,4 @@
-/* Terugkerende taken — PWA
+/* TaskForce X — PWA voor terugkerende taken
  * Data staat in deze repo (data/state.json) en wordt via de GitHub API gelezen en geschreven.
  * Pushmeldingen worden verstuurd door .github/workflows/remind.yml.
  */
@@ -18,9 +18,10 @@
   var REPO = detectRepo();
   var CFG = { vapidPublicKey: '', timeZone: 'Europe/Amsterdam', branch: 'main' };
   var token = LS.get('rt-token', '');
-  var S = LS.get('rt-state', null) || { tasks: [], done: {} };
+  var S = null;
   var sha = LS.get('rt-sha', null);
   var dirty = LS.get('rt-dirty', false);
+  S = clean(LS.get('rt-state', null));
 
   // ---------- helpers ----------
   var DAYN = ['zo', 'ma', 'di', 'wo', 'do', 'vr', 'za'];
@@ -30,7 +31,26 @@
   function key(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function isToday(d) { return key(d) === key(new Date()); }
   function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // Valideer data uit de repo: alleen verwachte velden en formaten, zodat een gemanipuleerd bestand geen code kan injecteren.
+  function clean(st) {
+    var out = { tasks: [], done: {} };
+    if (!st || !Array.isArray(st.tasks)) return out;
+    st.tasks.forEach(function (t) {
+      if (!t || typeof t.id !== 'string' || !/^[A-Za-z0-9_-]{1,40}$/.test(t.id)) return;
+      out.tasks.push({
+        id: t.id,
+        name: String(t.name || '').slice(0, 200),
+        days: (Array.isArray(t.days) ? t.days : []).filter(function (d) { return d === +d && d >= 0 && d <= 6; }),
+        time: /^([01]\d|2[0-3]):[0-5]\d$/.test(t.time) ? t.time : '',
+        notify: t.notify !== false
+      });
+    });
+    if (st.done && typeof st.done === 'object') Object.keys(st.done).forEach(function (k) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(k) && Array.isArray(st.done[k])) out.done[k] = st.done[k].filter(function (x) { return typeof x === 'string'; });
+    });
+    return out;
+  }
   function blank() { return { name: '', days: [1, 2, 3, 4, 5], time: '', notify: true }; }
   function notifies(t) { return !!t.time && t.notify !== false; }
   function tasksFor(d) {
@@ -62,7 +82,7 @@
     var headers = { 'Accept': 'application/vnd.github+json' };
     if (token) headers.Authorization = 'Bearer ' + token;
     if (opts.body) headers['Content-Type'] = 'application/json';
-    return fetch('https://api.github.com/repos/' + REPO.owner + '/' + REPO.repo + '/' + path,
+    return fetch('https://api.github.com/repos/' + encodeURIComponent(REPO.owner) + '/' + encodeURIComponent(REPO.repo) + (path ? '/' + path : ''),
       { method: opts.method || 'GET', headers: headers, body: opts.body, cache: 'no-store' });
   }
   function getFile(p) {
@@ -94,7 +114,7 @@
     setSync('busy', 'Ophalen…');
     return getFile('data/state.json').then(function (f) {
       if (dirty) { sha = f.sha; persistLocal(); if (token) return push(); setSync('idle', 'Alleen op dit toestel'); return; }
-      if (f.data && f.data.tasks) { S = f.data; S.done = S.done || {}; sha = f.sha; }
+      if (f.data && f.data.tasks) { S = clean(f.data); sha = f.sha; }
       persistLocal(); setSync(token ? 'ok' : 'idle', token ? 'Gesynchroniseerd' : 'Alleen lezen');
     }).catch(function (e) { setSync('err', e.status === 403 ? 'GitHub-limiet bereikt, probeer later' : 'Offline'); });
   }
@@ -175,7 +195,7 @@
   function render() {
     var now = new Date();
     var cls = sync.state === 'ok' ? 'sync ok' : sync.state === 'err' ? 'sync err' : 'sync';
-    var h = '<h1>Terugkerende taken</h1><p class="sub">' + cap(DAYL[now.getDay()]) + ' ' + now.getDate() + ' ' + MON[now.getMonth()] +
+    var h = '<h1>TaskForce X</h1><p class="sub">' + cap(DAYL[now.getDay()]) + ' ' + now.getDate() + ' ' + MON[now.getMonth()] +
       (sync.msg ? ' <span class="' + cls + '">' + esc(sync.msg) + '</span>' : '') + '</p>';
     h += '<div class="tabs">' + [['plan', 'Planning'], ['beheer', 'Taken beheren'], ['instel', 'Instellingen']].map(function (v) {
       return '<button class="tab' + (view === v[0] ? ' on' : '') + '" data-v="' + v[0] + '">' + v[1] + '</button>';
@@ -200,10 +220,10 @@
       var n = new Date(), hm = String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0');
       list.forEach(function (t) {
         var on = done.indexOf(t.id) > -1, late = !on && isToday(sel) && t.time && t.time < hm;
-        h += '<div class="item' + (on ? ' done' : '') + '"><button class="chk' + (on ? ' on' : '') + '" data-t="' + t.id + '" aria-label="Afvinken">' +
+        h += '<div class="item' + (on ? ' done' : '') + '"><button class="chk' + (on ? ' on' : '') + '" data-t="' + esc(t.id) + '" aria-label="Afvinken">' +
           (on ? '<svg width="13" height="13" viewBox="0 0 13 13"><path d="M2 7l3 3 6-7" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '') +
           '</button><span class="name">' + esc(t.name) + '</span>' +
-          (t.time ? '<span class="time' + (late ? ' late' : '') + '">' + (notifies(t) ? BELL + ' ' : '') + t.time + '</span>' : '') + '</div>';
+          (t.time ? '<span class="time' + (late ? ' late' : '') + '">' + (notifies(t) ? BELL + ' ' : '') + esc(t.time) + '</span>' : '') + '</div>';
       });
     }
     return h + '</div>';
@@ -220,8 +240,8 @@
     h += '</form></div><h2>Alle taken (' + S.tasks.length + ')</h2><div class="card">';
     if (!S.tasks.length) h += '<div class="empty">Nog geen taken. Voeg er hierboven een toe.</div>';
     S.tasks.slice().sort(function (a, b) { return (a.time || '99').localeCompare(b.time || '99'); }).forEach(function (t) {
-      h += '<div class="item"><span class="name">' + esc(t.name) + '<br><span class="small">' + daysLabel(t.days) + (t.time ? ' · ' + t.time : '') + (notifies(t) ? ' · ' + BELL : '') + '</span></span>' +
-        '<button class="link" data-edit="' + t.id + '">Bewerk</button><button class="del" data-del="' + t.id + '" aria-label="Verwijderen">×</button></div>';
+      h += '<div class="item"><span class="name">' + esc(t.name) + '<br><span class="small">' + daysLabel(t.days) + (t.time ? ' · ' + esc(t.time) : '') + (notifies(t) ? ' · ' + BELL : '') + '</span></span>' +
+        '<button class="link" data-edit="' + esc(t.id) + '">Bewerk</button><button class="del" data-del="' + esc(t.id) + '" aria-label="Verwijderen">×</button></div>';
     });
     return h + '</div>';
   }
@@ -246,7 +266,8 @@
       '<li>Ga naar <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Fine-grained token</a>.</li>' +
       '<li>Repository access: <b>Only select repositories</b> → <b>' + esc(REPO.repo) + '</b>.</li>' +
       '<li>Permissions → Repository → <b>Contents: Read and write</b>.</li>' +
-      '<li>Kies een vervaldatum, maak het token aan en plak het hierboven.</li></ol></div>';
+      '<li>Kies een vervaldatum, maak het token aan en plak het hierboven.</li></ol>' +
+      '<p class="p small">Geef het token geen andere rechten (zeker niet <b>Workflows</b> of <b>Administration</b>). Wie dit token heeft, kan de app-bestanden in de repo aanpassen, dus deel het niet en trek het in bij verlies van je toestel.</p></div>';
     return h;
   }
 
@@ -289,13 +310,15 @@
   document.addEventListener('submit', function (e) {
     e.preventDefault();
     if (e.target.id === 'tf') {
-      token = document.getElementById('tok').value.trim(); LS.set('rt-token', token);
+      var tv = document.getElementById('tok').value.trim();
+      if (!/^(github_pat_|ghp_)[A-Za-z0-9_]{20,}$/.test(tv)) { setSync('err', 'Dit lijkt geen GitHub-token'); return; }
+      token = tv; LS.set('rt-token', token);
       setSync('busy', 'Token controleren…');
       gh('').then(function (r) {
         return r.json().then(function (j) {
           if (!r.ok) throw new Error();
           if (!j.permissions || !j.permissions.push) { setSync('err', 'Token heeft geen schrijfrechten'); return; }
-          setSync('ok', 'Token werkt'); return pull();
+          setSync('ok', /^ghp_/.test(token) ? 'Token werkt, maar gebruik liever een fine-grained token' : 'Token werkt'); return pull();
         });
       }).catch(function () { setSync('err', 'Token werkt niet'); });
       return;

@@ -1,4 +1,4 @@
-# Terugkerende taken
+# TaskForce X
 
 Een installeerbare web-app (PWA) voor terugkerende taken per weekdag, met pushmeldingen.
 
@@ -12,6 +12,6 @@ Een installeerbare web-app (PWA) voor terugkerende taken per weekdag, met pushme
 3. Open de app en maak bij Instellingen een fine-grained token aan (alleen deze repo, *Contents: Read and write*).
 4. Zet bij Instellingen de meldingen aan. Op een iPhone moet je de app eerst via Safari → Deel → *Zet op beginscherm* installeren.
 
-Testmelding: Actions → Herinneringen → *Run workflow* → vink *test* aan.
+Testmelding: Actions → TaskForce X herinneringen → *Run workflow* → vink *test* aan.
 
 Let op: GitHub start geplande workflows niet altijd precies op tijd. Een melding kan daardoor een paar minuten (soms langer) later binnenkomen. De repo is publiek, dus je takenlijst is zichtbaar voor wie hem opzoekt.

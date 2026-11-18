@@ -42,16 +42,18 @@ const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + 
 const done = (state.done || {})[now.date] || [];
 const sentToday = sent[now.date] || [];
 const due = (state.tasks || []).filter((t) =>
-  t.time && t.notify !== false && (t.days || []).includes(now.weekday) &&
+  t && typeof t.id === 'string' && typeof t.time === 'string' && /^\d{2}:\d{2}$/.test(t.time) && Array.isArray(t.days) && t.notify !== false && (t.days || []).includes(now.weekday) &&
   !done.includes(t.id) && !sentToday.includes(t.id) &&
   toMin(t.time) - now.minutes <= EARLY && now.minutes - toMin(t.time) <= LATE);
 
 const messages = TEST
-  ? [{ title: 'Testmelding', body: 'Pushmeldingen werken.', tag: 'test' }]
-  : due.map((t) => ({ title: t.name, body: `Gepland om ${t.time}`, tag: `${t.id}-${now.date}`, url: './' }));
+  ? [{ title: 'TaskForce X', body: 'Testmelding: pushmeldingen werken.', tag: 'test' }]
+  : due.map((t) => ({ title: String(t.name || 'Taak').slice(0, 120), body: `Gepland om ${t.time}`, tag: `${t.id}-${now.date}`, url: './' }));
 
 console.log(`${now.date} ${String(Math.floor(now.minutes / 60)).padStart(2, '0')}:${String(now.minutes % 60).padStart(2, '0')} (dag ${now.weekday}) — ${messages.length} melding(en), ${subs.length} toestel(len)`);
 
+const ALLOWED = /^https:\/\/([a-z0-9-]+\.)*(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com|push\.api\.chromium\.org)\//i;
+subs = subs.filter((s) => s && typeof s.endpoint === 'string' && ALLOWED.test(s.endpoint) && s.keys && s.keys.p256dh && s.keys.auth);
 const gone = new Set();
 let delivered = 0;
 for (const msg of messages) {

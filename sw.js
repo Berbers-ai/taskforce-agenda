@@ -1,5 +1,5 @@
 /* Service worker: offline app-shell en pushmeldingen */
-const CACHE = 'taken-v1';
+const CACHE = 'taskforcex-v2';
 const SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'config.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
@@ -29,9 +29,9 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: e.data && e.data.text() }; }
-  const title = d.title || 'Herinnering';
+  const title = String(d.title || 'TaskForce X').slice(0, 120);
   e.waitUntil(self.registration.showNotification(title, {
-    body: d.body || '',
+    body: String(d.body || '').slice(0, 240),
     tag: d.tag || undefined,
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
