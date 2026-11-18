@@ -1,6 +1,6 @@
 /* Service worker: offline app-shell en pushmeldingen */
-const CACHE = 'taskforcex-v6';
-const SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'config.json',
+const CACHE = 'taskforcex-v7';
+const SHELL = ['./', 'index.html', 'app.js', 'vendor/supabase-2.119.1.js', 'manifest.webmanifest', 'config.json',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => {

@@ -11,7 +11,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: herinneringen
@@ -24,24 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          persist-credentials: true
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm install --no-save --no-audit --no-fund --ignore-scripts web-push@3.6.7
       - run: node scripts/remind.mjs
         env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           TEST: ${{ inputs.test || 'false' }}
-      - name: Wijzigingen opslaan
-        run: |
-          git config user.name "taskforce-x-bot"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/sent.json data/subscriptions.json
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Herinneringen verstuurd [skip ci]"
-          for i in 1 2 3; do
-            git pull --rebase -X theirs origin main && git push && exit 0
-            sleep 3
-          done
-          exit 1

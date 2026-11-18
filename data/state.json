@@ -1,8 +1,0 @@
-{
- "tasks": [
-  {"id": "t1", "name": "Mail en agenda doornemen", "days": [1, 2, 3, 4, 5], "time": "09:00", "notify": true},
-  {"id": "t2", "name": "Dagplanning maken", "days": [1, 2, 3, 4, 5], "time": "09:15", "notify": true},
-  {"id": "t3", "name": "Weekoverzicht versturen", "days": [5], "time": "16:00", "notify": true}
- ],
- "done": {}
-}
