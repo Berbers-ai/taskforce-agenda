@@ -8,7 +8,7 @@ const write = (p, v) => fs.writeFileSync(p, JSON.stringify(v, null, 1) + '\n');
 
 const cfg = read('config.json', {});
 const privateKey = process.env.VAPID_PRIVATE_KEY;
-if (!privateKey) { console.error('VAPID_PRIVATE_KEY ontbreekt (repo secret).'); process.exit(1); }
+if (!privateKey) { console.log('VAPID_PRIVATE_KEY ontbreekt nog (repo secret); niets verstuurd.'); process.exit(0); }
 webpush.setVapidDetails(cfg.contact || 'mailto:noreply@example.com', cfg.vapidPublicKey, privateKey);
 
 const TEST = process.env.TEST === 'true';
