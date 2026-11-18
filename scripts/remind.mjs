@@ -37,6 +37,7 @@ function nowParts() {
   };
 }
 const now = nowParts();
+const lead = (t) => ([0, 5, 10, 15, 30, 60].includes(t.lead) ? t.lead : 0);
 const toMin = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
 
 const done = (state.done || {})[now.date] || [];
@@ -48,11 +49,15 @@ const due = (state.tasks || []).filter((t) =>
   t && typeof t.id === 'string' && typeof t.time === 'string' && /^\d{2}:\d{2}$/.test(t.time) &&
   t.notify !== false && occursToday(t) &&
   !done.includes(t.id) && !sentToday.includes(t.id) &&
-  toMin(t.time) - now.minutes <= EARLY && now.minutes - toMin(t.time) <= LATE);
+  (toMin(t.time) - lead(t)) - now.minutes <= EARLY && now.minutes - (toMin(t.time) - lead(t)) <= LATE);
 
 const messages = TEST
   ? [{ title: 'TaskForce X', body: 'Testmelding: pushmeldingen werken.', tag: 'test' }]
-  : due.map((t) => ({ title: String(t.name || 'Taak').slice(0, 120), body: `Gepland om ${t.time}`, tag: `${t.id}-${now.date}`, url: './' }));
+  : due.map((t) => ({
+      title: String(t.name || 'Taak').slice(0, 120),
+      body: lead(t) ? `Over ${lead(t)} minuten, om ${t.time}` : `Gepland om ${t.time}`,
+      tag: `${t.id}-${now.date}`, id: t.id, date: now.date
+    }));
 
 console.log(`${now.date} ${String(Math.floor(now.minutes / 60)).padStart(2, '0')}:${String(now.minutes % 60).padStart(2, '0')} (dag ${now.weekday}) — ${messages.length} melding(en), ${subs.length} toestel(len)`);
 

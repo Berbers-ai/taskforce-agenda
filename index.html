@@ -45,15 +45,19 @@
   .wordmark span { font-weight: 400; color: var(--g600); }
   .wordmark i { font-style: normal; font-weight: 700; color: var(--g600); margin-left: 3px; }
   .head-right { position: absolute; right: 0; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 8px; }
-  .sync { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-  .sync.ok { color: var(--g600); }
+  .sync-dot { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); border: 1.5px solid white; transition: background 0.2s; }
+  .sync-dot.ok { background: var(--g500); }
+  .sync-dot.busy { background: var(--faint); animation: pulse 1s ease-in-out infinite; }
+  .sync-dot.local { background: var(--faint); }
+  .sync-dot.err { background: white; border-color: var(--muted); }
+  .sync-dot.inline { position: static; display: inline-block; margin-right: 7px; vertical-align: 0; border-color: var(--g50); }
+  @keyframes pulse { 50% { opacity: 0.35; } }
   .gear {
-    width: 34px; height: 34px; border: none; background: white; border-radius: 9px; cursor: pointer;
+    position: relative; width: 34px; height: 34px; border: none; background: white; border-radius: 9px; cursor: pointer;
     color: #64748b; display: flex; align-items: center; justify-content: center;
     box-shadow: 0 1px 3px rgba(0,0,0,0.07); transition: all 0.15s;
   }
   .gear:hover { background: var(--g50); color: var(--g600); }
-  @media (max-width: 420px) { .sync { display: none; } }
 
   /* WEEK STRIP */
   .week-strip { display: flex; gap: 5px; margin-bottom: 28px; }
@@ -73,6 +77,15 @@
   .wd-dot { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
   .week-day.has-tasks .wd-dot { background: var(--g300); }
   .week-day.active.has-tasks .wd-dot { background: rgba(255,255,255,0.5); }
+  .week-strip { touch-action: pan-y; }
+  .week-strip.swipe-l { animation: swl 0.25s ease; }
+  .week-strip.swipe-r { animation: swr 0.25s ease; }
+  @keyframes swl { from { opacity: 0.3; transform: translateX(24px); } }
+  @keyframes swr { from { opacity: 0.3; transform: translateX(-24px); } }
+  .banner { background: white; border: 1.5px solid var(--g200); border-radius: 11px; padding: 13px 15px; margin-bottom: 14px; display: flex; gap: 12px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--ink2); line-height: 1.45; }
+  .banner[hidden] { display: none; }
+  .banner b { color: var(--ink); font-weight: 600; }
+  .banner-actions { display: flex; flex-direction: column; align-items: center; gap: 2px; flex-shrink: 0; }
 
   /* DATE NAV */
   .date-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
@@ -115,7 +128,9 @@
   .task-item {
     display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 15px;
     background: white; border-radius: 11px; border: 1.5px solid transparent;
-    transition: border-color 0.15s, opacity 0.15s; animation: fadeSlide 0.18s ease;
+    transition: border-color 0.15s, opacity 0.15s;
+  }
+  .task-item.new { animation: fadeSlide 0.18s ease;
   }
   @keyframes fadeSlide { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
   .task-item:hover, .task-item.open { border-color: var(--g200); }
@@ -128,8 +143,10 @@
   }
   .check:hover { border-color: var(--g600); }
   .check.checked { background: var(--g600); border-color: var(--g600); }
+  .task-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .from { font-size: 11.5px; color: var(--g600); margin-top: 1px; }
   .task-text {
-    flex: 1; min-width: 0; font-size: 14.5px; color: var(--ink); line-height: 1.4;
+    min-width: 0; font-size: 14.5px; color: var(--ink); line-height: 1.4;
     outline: none; overflow-wrap: anywhere; padding: 2px 0;
   }
   .task-item.done .task-text { text-decoration: line-through; color: var(--muted); }
@@ -215,14 +232,23 @@
   .card { background: white; border-radius: 11px; padding: 14px 15px; display: grid; gap: 10px; }
   .card p { font-size: 13.5px; color: var(--ink2); line-height: 1.5; }
   .card ol { font-size: 13px; color: var(--ink2); line-height: 1.6; padding-left: 18px; }
-  .card a { color: var(--g700); }
-  .tok-row { display: flex; gap: 8px; }
-  .tok-in { flex: 1; min-width: 0; border: 1.5px solid var(--line); border-radius: 9px; padding: 9px 11px; font-size: 14px; outline: none; }
+  .card a { color: var(--g700); font-weight: 500; }
+  .card.list { gap: 0; padding: 4px 15px; }
+  .card.list > .hint { padding: 10px 0; }
+  .rec-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .rec-item:first-child { border-top: 0; }
+  .rec-name { font-size: 14px; color: var(--ink); }
+  .sheet-status { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .sel { padding-right: 6px; font-size: 13px; }
+  .del-panel { gap: 8px; }
+  .tok-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tok-row .btn { flex: 1; }
+  .tok-in { flex: 1 1 100%; min-width: 0; border: 1.5px solid var(--line); border-radius: 9px; padding: 9px 11px; font-size: 14px; outline: none; }
   .tok-in:focus { border-color: var(--g600); }
   .btn { border: none; background: var(--g600); color: white; font-weight: 600; font-size: 13.5px; border-radius: 9px; padding: 9px 15px; cursor: pointer; }
   .btn:disabled { opacity: 0.45; cursor: default; }
   .btn.ghost { background: white; color: var(--ink2); border: 1.5px solid var(--line); }
-  .msg { font-size: 12.5px; color: var(--g700); min-height: 16px; }
+  .msg { font-size: 12.5px; color: var(--g700); min-height: 16px; margin-top: 12px; }
 </style>
 </head>
 <body>
@@ -238,8 +264,8 @@
     <div class="wordmark"><b>Task</b><span>Force</span><i>X</i></div>
   </div>
   <div class="head-right">
-    <span class="sync" id="sync"></span>
     <button class="gear" id="open-settings" aria-label="Instellingen">
+      <span class="sync-dot busy" id="sync-dot"></span>
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
   </div>
@@ -257,6 +283,7 @@
   <button class="nav-btn" id="next" aria-label="Volgende dag">›</button>
 </div>
 
+<div class="banner col" id="banner" hidden></div>
 <div class="summary col" id="summary"></div>
 <div class="task-list col" id="task-list"></div>
 

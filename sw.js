@@ -1,5 +1,5 @@
 /* Service worker: offline app-shell en pushmeldingen */
-const CACHE = 'taskforcex-v5';
+const CACHE = 'taskforcex-v6';
 const SHELL = ['./', 'index.html', 'app.js', 'manifest.webmanifest', 'config.json',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
@@ -30,20 +30,30 @@ self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: e.data && e.data.text() }; }
   const title = String(d.title || 'TaskForce X').slice(0, 120);
+  const id = /^[A-Za-z0-9_-]{1,40}$/.test(d.id || '') ? d.id : '';
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
   e.waitUntil(self.registration.showNotification(title, {
     body: String(d.body || '').slice(0, 240),
     tag: d.tag || undefined,
     icon: 'icons/icon-192.png',
     badge: 'icons/icon-192.png',
-    data: { url: d.url || './' }
+    actions: id && date ? [{ action: 'done', title: 'Klaar' }] : [],
+    data: { id, date }
   }));
 });
 
+// Tik op de melding: open de app op die dag. Knop "Klaar": open de app en vink de taak af.
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const target = new URL((e.notification.data && e.notification.data.url) || './', self.registration.scope).href;
+  const { id, date } = e.notification.data || {};
+  const link = e.action === 'done' && id && date ? `#done=${id}@${date}` : date ? `#d=${date}` : '';
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-    for (const c of list) { if (c.url.startsWith(self.registration.scope) && 'focus' in c) return c.focus(); }
-    return self.clients.openWindow(target);
+    for (const c of list) {
+      if (c.url.startsWith(self.registration.scope) && 'focus' in c) {
+        if (link) c.postMessage({ link });
+        return c.focus();
+      }
+    }
+    return self.clients.openWindow(new URL('./' + link, self.registration.scope).href);
   }));
 });
