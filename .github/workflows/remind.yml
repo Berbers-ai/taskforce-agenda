@@ -1,0 +1,45 @@
+name: Herinneringen
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    inputs:
+      test:
+        description: 'Stuur een testmelding naar alle toestellen'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: herinneringen
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save --no-audit --no-fund web-push@3
+      - run: node scripts/remind.mjs
+        env:
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          TEST: ${{ inputs.test || 'false' }}
+      - name: Wijzigingen opslaan
+        run: |
+          git config user.name "herinneringen-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/sent.json data/subscriptions.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Herinneringen verstuurd [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase -X theirs origin main && git push && exit 0
+            sleep 3
+          done
+          exit 1
