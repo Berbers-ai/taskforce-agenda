@@ -1,7 +1,7 @@
 {
-  "name": "TaskForce X",
-  "short_name": "TaskForce X",
-  "description": "Jouw dagelijkse takenlijst, met tijdstip en pushmelding per taak.",
+  "name": "TaskForce Agenda",
+  "short_name": "TF Agenda",
+  "description": "Gedeelde takenlijst per dag, met tijdstip en pushmelding per taak.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

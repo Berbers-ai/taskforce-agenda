@@ -1,5 +1,5 @@
 /* Service worker: offline app-shell en pushmeldingen */
-const CACHE = 'taskforcex-v7';
+const CACHE = 'taskforce-agenda-v7';
 const SHELL = ['./', 'index.html', 'app.js', 'vendor/supabase-2.119.1.js', 'manifest.webmanifest', 'config.json',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
@@ -29,7 +29,7 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let d = {};
   try { d = e.data ? e.data.json() : {}; } catch (err) { d = { title: e.data && e.data.text() }; }
-  const title = String(d.title || 'TaskForce X').slice(0, 120);
+  const title = String(d.title || 'TaskForce Agenda').slice(0, 120);
   const id = /^[A-Za-z0-9_-]{1,40}$/.test(d.id || '') ? d.id : '';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
   e.waitUntil(self.registration.showNotification(title, {

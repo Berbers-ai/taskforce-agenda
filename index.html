@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>TaskForce X</title>
+<title>TaskForce Agenda</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://bdotejyqbtjhgczwzrzh.supabase.co wss://bdotejyqbtjhgczwzrzh.supabase.co; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
-<meta name="description" content="Jouw dagelijkse takenlijst">
+<meta name="description" content="Gedeelde takenlijst per dag">
 <meta name="theme-color" content="#f0fdf4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="TaskForce X">
+<meta name="apple-mobile-web-app-title" content="TaskForce Agenda">
 <link rel="manifest" href="manifest.webmanifest?v=4">
 <link rel="icon" href="icons/icon.svg?v=4" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=4">
@@ -282,14 +282,21 @@
 <body>
 
 <header class="col">
-  <div class="logo" aria-label="TaskForce X">
-    <svg width="32" height="32" viewBox="0 0 192 192" aria-hidden="true">
-      <defs><linearGradient id="lg" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#15803d"/></linearGradient></defs>
-      <rect width="192" height="192" rx="42" fill="url(#lg)"/>
-      <path d="M96 40c13 9 27 13 42 14v40c0 28-18 46-42 56c-24-10-42-28-42-56V54c15-1 29-5 42-14z" fill="#fff"/>
-      <path d="M75 96l15 15l28-30" fill="none" stroke="#16a34a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-    </svg>
-    <div class="wordmark"><b>Task</b><span>Force</span><i>X</i></div>
+  <div class="logo" aria-label="TaskForce Agenda">
+    <svg width="32" height="32" viewBox="0 0 192 192" aria-hidden="true"><defs>
+    <linearGradient id="lg" x1="0" y1="0" x2="192" y2="192" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#15803d"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#lg)"/>
+  <rect x="46" y="52" width="100" height="94" rx="18" fill="#fff"/>
+  <rect x="46" y="52" width="100" height="26" rx="13" fill="#fff"/>
+  <path d="M46 72h100" stroke="#16a34a" stroke-width="6" opacity="0.25"/>
+  <rect x="68" y="40" width="10" height="24" rx="5" fill="#fff"/>
+  <rect x="114" y="40" width="10" height="24" rx="5" fill="#fff"/>
+  <path d="M75 108l14 14l28-29" fill="none" stroke="#16a34a" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+    <div class="wordmark"><b>Task</b><span>Force</span><i>Agenda</i></div>
   </div>
   <div class="head-right">
     <button class="gear" id="open-settings" aria-label="Instellingen">

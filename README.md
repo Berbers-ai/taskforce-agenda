@@ -1,4 +1,4 @@
-# TaskForce X
+# TaskForce Agenda
 
 Een gedeelde takenlijst per dag (PWA). Per taak: tijdstip, pushmelding (op tijd of vooraf), herhalen en voor wie hij is.
 Iemand laten meedoen gaat met een uitnodigingslink: openen, naam invullen, klaar. Geen account nodig.
@@ -16,6 +16,6 @@ Iemand laten meedoen gaat met een uitnodigingslink: openen, naam invullen, klaar
 4. Repository secrets: `SUPABASE_SECRET_KEY` (secret key) en `VAPID_PRIVATE_KEY` (publieke sleutel staat in `config.json`).
 5. Settings → Pages → Deploy from branch → `main` / root.
 
-Testmelding: Actions → TaskForce X herinneringen → *Run workflow* → vink *test* aan.
+Testmelding: Actions → TaskForce Agenda herinneringen → *Run workflow* → vink *test* aan.
 
 GitHub start geplande workflows niet altijd precies op tijd; een melding kan daardoor een paar minuten later komen.

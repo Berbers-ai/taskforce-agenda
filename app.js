@@ -1,4 +1,4 @@
-/* TaskForce X — gedeelde agenda
+/* TaskForce Agenda — gedeelde agenda
  * Data in Supabase (tabellen en beveiliging: supabase/schema.sql).
  * Inloggen gaat anoniem per toestel; toegang tot een agenda krijg je via een uitnodigingslink.
  * Pushmeldingen: .github/workflows/remind.yml.
@@ -122,11 +122,11 @@
     var from = addDays(todayKey(), -30);
     setSync('busy');
     return Promise.all([
-      sb.from('tfx_spaces').select('id,name,invite_code,created_by').eq('id', space.id).maybeSingle(),
-      sb.from('tfx_members').select('user_id,name,joined_at,color').eq('space_id', space.id).order('joined_at'),
-      sb.from('tfx_tasks').select('*').eq('space_id', space.id),
-      sb.from('tfx_done').select('task_id,day,done_by').eq('space_id', space.id).gte('day', from),
-      sb.from('tfx_skip').select('task_id,day').eq('space_id', space.id).gte('day', from)
+      sb.from('tfa_spaces').select('id,name,invite_code,created_by').eq('id', space.id).maybeSingle(),
+      sb.from('tfa_members').select('user_id,name,joined_at,color').eq('space_id', space.id).order('joined_at'),
+      sb.from('tfa_tasks').select('*').eq('space_id', space.id),
+      sb.from('tfa_done').select('task_id,day,done_by').eq('space_id', space.id).gte('day', from),
+      sb.from('tfa_skip').select('task_id,day').eq('space_id', space.id).gte('day', from)
     ]).then(function (res) {
       res.forEach(function (r) { if (r.error) throw r.error; });
       if (!res[0].data) { leftSpace(); return; }
@@ -136,7 +136,7 @@
       doneByMap = {};
       res[3].data.forEach(function (r) { addTo('done', r.day, r.task_id); doneByMap[r.task_id + '|' + r.day] = r.done_by; });
       res[4].data.forEach(function (r) { addTo('skip', r.day, r.task_id); });
-      LS.set('tfx-cache', { space: space, members: members, S: S });
+      LS.set('tfa-cache', { space: space, members: members, S: S });
       setSync('ok');
       rollover();
       if (!busyEditing()) render();
@@ -147,7 +147,7 @@
     if (channel) sb.removeChannel(channel);
     var f = 'space_id=eq.' + space.id;
     channel = sb.channel('space-' + space.id);
-    ['tfx_tasks', 'tfx_done', 'tfx_skip', 'tfx_members'].forEach(function (tbl) {
+    ['tfa_tasks', 'tfa_done', 'tfa_skip', 'tfa_members'].forEach(function (tbl) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table: tbl, filter: f }, function () {
         clearTimeout(reloadTimer); reloadTimer = setTimeout(load, 400);
       });
@@ -156,14 +156,14 @@
   }
   function leftSpace() {
     space = null; members = []; S = { tasks: [], done: {}, skip: {} };
-    LS.set('tfx-space', null); LS.set('tfx-cache', null);
+    LS.set('tfa-space', null); LS.set('tfa-cache', null);
     showOnboard('welcome', 'Je hebt geen toegang meer tot deze agenda. Vraag om een nieuwe uitnodigingslink.');
   }
 
   /* ---------- acties op de database ---------- */
   function addTask(t) {
     S.tasks.push(t); render();
-    return q(sb.from('tfx_tasks').insert(toRow(t)), 'Taak niet opgeslagen');
+    return q(sb.from('tfa_tasks').insert(toRow(t)), 'Taak niet opgeslagen');
   }
   function updateTask(t, fields) {
     var row = {}, map = { date: 'date', days: 'days', time: 'time', notify: 'notify', lead: 'lead', from: 'from_date', assignee: 'assignee', name: 'name' };
@@ -172,22 +172,22 @@
     Object.keys(fields).forEach(function (k) { var c = map[k]; row[c] = full[c]; });
     if ('days' in fields) row.date = full.date;
     render();
-    return q(sb.from('tfx_tasks').update(row).eq('id', t.id), 'Wijziging niet opgeslagen');
+    return q(sb.from('tfa_tasks').update(row).eq('id', t.id), 'Wijziging niet opgeslagen');
   }
   function setDone(t, k, on) {
     if (on) { addTo('done', k, t.id); doneByMap[t.id + '|' + k] = me; } else removeFrom('done', k, t.id);
     render();
     return on
-      ? q(sb.from('tfx_done').upsert({ task_id: t.id, day: k, space_id: space.id }, { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Afvinken niet opgeslagen')
-      : q(sb.from('tfx_done').delete().eq('task_id', t.id).eq('day', k), 'Niet opgeslagen');
+      ? q(sb.from('tfa_done').upsert({ task_id: t.id, day: k, space_id: space.id }, { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Afvinken niet opgeslagen')
+      : q(sb.from('tfa_done').delete().eq('task_id', t.id).eq('day', k), 'Niet opgeslagen');
   }
   function setSkip(ids, k, on) {
     ids.forEach(function (id) { if (on) addTo('skip', k, id); else removeFrom('skip', k, id); });
     render();
     if (!ids.length) return Promise.resolve();
     return on
-      ? q(sb.from('tfx_skip').upsert(ids.map(function (id) { return { task_id: id, day: k, space_id: space.id }; }), { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Niet opgeslagen')
-      : q(sb.from('tfx_skip').delete().eq('day', k).in('task_id', ids), 'Niet opgeslagen');
+      ? q(sb.from('tfa_skip').upsert(ids.map(function (id) { return { task_id: id, day: k, space_id: space.id }; }), { onConflict: 'task_id,day', ignoreDuplicates: true }), 'Niet opgeslagen')
+      : q(sb.from('tfa_skip').delete().eq('day', k).in('task_id', ids), 'Niet opgeslagen');
   }
   // Verwijderde taken (met afvinkjes) bewaren voor "Ongedaan maken"
   function deleteTasks(list) {
@@ -197,15 +197,15 @@
     S.tasks = S.tasks.filter(function (t) { return ids.indexOf(t.id) < 0; });
     Object.keys(S.done).forEach(function (k) { S.done[k] = S.done[k].filter(function (id) { return ids.indexOf(id) < 0; }); });
     render();
-    var p = ids.length ? q(sb.from('tfx_tasks').delete().in('id', ids), 'Verwijderen mislukt') : Promise.resolve();
+    var p = ids.length ? q(sb.from('tfa_tasks').delete().in('id', ids), 'Verwijderen mislukt') : Promise.resolve();
     return function undo() {
       list.forEach(function (t) { S.tasks.push(t); });
       doneRows.forEach(function (r) { addTo('done', r.day, r.task_id); });
       render();
       p.then(function () {
-        return q(sb.from('tfx_tasks').insert(list.map(toRow)), 'Herstellen mislukt');
+        return q(sb.from('tfa_tasks').insert(list.map(toRow)), 'Herstellen mislukt');
       }).then(function () {
-        if (doneRows.length) return q(sb.from('tfx_done').insert(doneRows), 'Herstellen mislukt');
+        if (doneRows.length) return q(sb.from('tfa_done').insert(doneRows), 'Herstellen mislukt');
       }).catch(function () {});
     };
   }
@@ -219,7 +219,7 @@
     rolling = true;
     Promise.all(late.map(function (t) {
       var from = t.from || t.date; t.from = from; t.date = t0;
-      return sb.from('tfx_tasks').update({ date: t0, from_date: from }).eq('id', t.id).lt('date', t0);
+      return sb.from('tfa_tasks').update({ date: t0, from_date: from }).eq('id', t.id).lt('date', t0);
     })).then(function () { rolling = false; render(); }).catch(function () { rolling = false; });
   }
 
@@ -244,7 +244,7 @@
   };
 
   /* ---------- weergave ---------- */
-  var lastAdded = null, current = todayKey(), openId = null, delChoice = null, focusTime = false, confirmAll = false, confirmTimer = null, bannerHidden = LS.get('tfx-banner-hidden', false);
+  var lastAdded = null, current = todayKey(), openId = null, delChoice = null, focusTime = false, confirmAll = false, confirmTimer = null, bannerHidden = LS.get('tfa-banner-hidden', false);
 
   function renderStrip() {
     var d = parseKey(current), mon = new Date(d); mon.setDate(d.getDate() - (d.getDay() + 6) % 7);
@@ -368,7 +368,7 @@
   $('banner').onclick = function (e) {
     var b = e.target.closest('[data-b]'); if (!b) return;
     if (b.dataset.b === 'invite') shareInvite();
-    if (b.dataset.b === 'later') { bannerHidden = true; LS.set('tfx-banner-hidden', true); renderBanner(); }
+    if (b.dataset.b === 'later') { bannerHidden = true; LS.set('tfa-banner-hidden', true); renderBanner(); }
   };
 
   /* ---------- toevoegen ---------- */
@@ -502,9 +502,9 @@
   /* ---------- uitnodigen ---------- */
   function shareInvite() {
     var url = inviteUrl();
-    var text = (member(me) ? member(me).name : 'Ik') + ' nodigt je uit voor de gedeelde agenda "' + space.name + '" in TaskForce X.';
+    var text = (member(me) ? member(me).name : 'Ik') + ' nodigt je uit voor de gedeelde agenda "' + space.name + '" in TaskForce Agenda.';
     if (navigator.share) {
-      navigator.share({ title: 'TaskForce X', text: text, url: url }).catch(function () {});
+      navigator.share({ title: 'TaskForce Agenda', text: text, url: url }).catch(function () {});
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(function () { toast('Uitnodigingslink gekopieerd'); }, function () { openSheet(); });
     } else openSheet();
@@ -561,7 +561,7 @@
     h += '<div class="sec-title">Pushmeldingen</div><div class="card">';
     if (!pushInfo.supported) {
       h += '<p>' + (isIOS() && !isStandalone()
-        ? 'Op iPhone werken meldingen alleen als TaskForce X op je beginscherm staat. Tik in Safari op <b>Deel</b> → <b>Zet op beginscherm</b> en open de app vanaf daar.'
+        ? 'Op iPhone werken meldingen alleen als TaskForce Agenda op je beginscherm staat. Tik in Safari op <b>Deel</b> → <b>Zet op beginscherm</b> en open de app vanaf daar.'
         : 'Deze browser ondersteunt geen pushmeldingen.') + '</p>';
     } else {
       h += '<p>' + (pushInfo.subscribed ? 'Meldingen staan <b>aan</b> op dit toestel.' : 'Meldingen staan <b>uit</b> op dit toestel.') + '</p>' +
@@ -581,15 +581,15 @@
     if (s === 'edit') { var t = find(b.dataset.id); if (!t) return; closeSheet(); go(nextOccurrence(t)); openId = t.id; render(); var r = document.querySelector('.task-item.open'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
     if (s === 'share') { shareInvite(); return; }
     if (s === 'newlink') {
-      sb.rpc('tfx_new_invite', { s: space.id }).then(function (r) {
+      sb.rpc('tfa_new_invite', { s: space.id }).then(function (r) {
         if (r.error) throw r.error; space.invite_code = r.data; msg('Nieuwe link gemaakt. De oude werkt niet meer.');
       }).catch(function () { msg('Dat lukte niet. Probeer het opnieuw.'); });
       return;
     }
     if (s === 'name') {
       var v = $('my-name').value.replace(/\s+/g, ' ').trim().slice(0, 40); if (!v) return;
-      sb.from('tfx_members').update({ name: v }).eq('space_id', space.id).eq('user_id', me).then(function (r) {
-        if (r.error) throw r.error; member(me).name = v; LS.set('tfx-name', v); msg('Naam opgeslagen.'); render();
+      sb.from('tfa_members').update({ name: v }).eq('space_id', space.id).eq('user_id', me).then(function (r) {
+        if (r.error) throw r.error; member(me).name = v; LS.set('tfa-name', v); msg('Naam opgeslagen.'); render();
       }).catch(function () { msg('Opslaan lukte niet.'); });
       return;
     }
@@ -611,21 +611,21 @@
       });
     }).then(function (s) {
       msg('Toestel aanmelden…');
-      return sb.from('tfx_push_subs').upsert({
+      return sb.from('tfa_push_subs').upsert({
         endpoint: s.endpoint, space_id: space.id, user_id: me,
         p256dh: b64url(s.getKey('p256dh')), auth: b64url(s.getKey('auth')), device: deviceName()
       }, { onConflict: 'endpoint' });
     }).then(function (r) {
       if (r.error) throw new Error('Aanmelden is mislukt.');
       pushInfo.subscribed = true; msg('Meldingen staan aan.');
-      return reg.showNotification('TaskForce X', { body: 'Meldingen staan aan.', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png' });
+      return reg.showNotification('TaskForce Agenda', { body: 'Meldingen staan aan.', icon: 'icons/icon-192.png', badge: 'icons/icon-192.png' });
     }).catch(function (e) { msg(e.message || 'Aanmelden is mislukt.'); });
   }
   function disablePush() {
     var endpoint;
     navigator.serviceWorker.ready.then(function (reg) { return reg.pushManager.getSubscription(); })
       .then(function (s) { if (!s) return; endpoint = s.endpoint; return s.unsubscribe(); })
-      .then(function () { if (endpoint) return sb.from('tfx_push_subs').delete().eq('endpoint', endpoint); })
+      .then(function () { if (endpoint) return sb.from('tfa_push_subs').delete().eq('endpoint', endpoint); })
       .then(function () { pushInfo.subscribed = false; msg('Meldingen staan uit op dit toestel.'); })
       .catch(function () { msg('Afmelden is mislukt.'); });
   }
@@ -637,7 +637,7 @@
   }
   function showOnboard(kind, note, info) {
     $('main').hidden = true; $('onboard').hidden = false; closeSheet();
-    var name = LS.get('tfx-name', '');
+    var name = LS.get('tfa-name', '');
     var h = '<div class="ob">';
     if (kind === 'config') {
       h += '<h1>Bijna klaar</h1><p>De koppeling met de database is nog niet ingesteld. Vul <b>supabaseUrl</b> en <b>supabaseKey</b> in <code>config.json</code> in.</p>';
@@ -648,7 +648,7 @@
     } else if (kind === 'loading') {
       h += '<p class="small">Even geduld…</p>';
     } else {
-      h += '<h1>Welkom bij TaskForce X</h1><p>Een gedeelde takenlijst per dag, met tijdstip en pushmelding. Maak een agenda en nodig daarna iemand uit met een link.</p>' +
+      h += '<h1>Welkom bij TaskForce Agenda</h1><p>Een gedeelde takenlijst per dag, met tijdstip en pushmelding. Maak een agenda en nodig daarna iemand uit met een link.</p>' +
         '<label>Jouw naam<input id="ob-name" maxlength="40" autocomplete="given-name" value="' + esc(name) + '" placeholder="Bijv. Mark"></label>' +
         '<label>Naam van de agenda<input id="ob-space" maxlength="60" value="Onze agenda"></label>' +
         '<button class="btn" id="ob-create">Agenda maken</button>' +
@@ -661,15 +661,15 @@
     if (e.target.id === 'ob-create') {
       var n = $('ob-name').value.trim(), sn = $('ob-space').value.trim();
       if (!n) { $('ob-name').focus(); return; }
-      e.target.disabled = true; LS.set('tfx-name', n);
-      sb.rpc('tfx_create_space', { space_name: sn || 'Onze agenda', my_name: n }).then(function (r) {
+      e.target.disabled = true; LS.set('tfa-name', n);
+      sb.rpc('tfa_create_space', { space_name: sn || 'Onze agenda', my_name: n }).then(function (r) {
         if (r.error) throw r.error; enterSpace(r.data.id);
       }).catch(function (err) { showOnboard('welcome', 'Dat lukte niet: ' + (err.message || 'probeer het opnieuw')); });
     }
     if (e.target.id === 'ob-join') {
       var nm = $('ob-name').value.trim(); if (!nm) { $('ob-name').focus(); return; }
-      e.target.disabled = true; LS.set('tfx-name', nm);
-      sb.rpc('tfx_join_space', { code: pendingInvite, my_name: nm }).then(function (r) {
+      e.target.disabled = true; LS.set('tfa-name', nm);
+      sb.rpc('tfa_join_space', { code: pendingInvite, my_name: nm }).then(function (r) {
         if (r.error) throw r.error; pendingInvite = null; enterSpace(r.data, true);
       }).catch(function (err) { showOnboard('welcome', err.message || 'Deze uitnodiging werkt niet.'); });
     }
@@ -678,7 +678,7 @@
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') { var b = $('ob-join') || $('ob-create'); if (b) b.click(); }
   });
   function enterSpace(id, joined) {
-    space = { id: id, name: '', invite_code: '' }; LS.set('tfx-space', id);
+    space = { id: id, name: '', invite_code: '' }; LS.set('tfa-space', id);
     showMain(); subscribe();
     load().then(function () { if (joined) toast('Welkom in ' + space.name + '!'); });
   }
@@ -690,7 +690,7 @@
     if ((m = /^#join=([a-f0-9]{32})$/.exec(h))) {
       clearHash(); pendingInvite = m[1];
       showOnboard('loading');
-      sb.rpc('tfx_invite_info', { code: pendingInvite }).then(function (r) {
+      sb.rpc('tfa_invite_info', { code: pendingInvite }).then(function (r) {
         if (r.error) throw r.error;
         if (!r.data || !r.data.length) { pendingInvite = null; return space ? (showMain(), toast('Deze uitnodiging is niet meer geldig')) : showOnboard('welcome', 'Deze uitnodiging is niet (meer) geldig. Vraag om een nieuwe link.'); }
         var info = r.data[0];
@@ -718,15 +718,15 @@
   /* ---------- start ---------- */
   function start() {
     if (!CFG.supabaseUrl || !CFG.supabaseKey || !window.supabase) { showOnboard('config'); return; }
-    sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'tfx-auth' } });
+    sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'tfa-auth' } });
     var hash = location.hash;
     sb.auth.getSession().then(function (r) {
       if (r.data && r.data.session) return r.data.session;
       return sb.auth.signInAnonymously().then(function (x) { if (x.error) throw x.error; return x.data.session; });
     }).then(function (session) {
       me = session.user.id;
-      var sid = LS.get('tfx-space', null);
-      var cache = LS.get('tfx-cache', null);
+      var sid = LS.get('tfa-space', null);
+      var cache = LS.get('tfa-cache', null);
       if (sid && cache && cache.space && cache.space.id === sid) { space = cache.space; members = cache.members || []; S = cache.S || S; }
       if (hash && /^#join=/.test(hash)) { handleLink(hash); if (sid) { space = space || { id: sid }; subscribe(); load(); } return; }
       if (sid) {
@@ -735,7 +735,7 @@
         return load().then(function () { if (hash) handleLink(hash); });
       }
       // Nog geen agenda op dit toestel: misschien al lid van een agenda (bijv. na herinstallatie)
-      return sb.from('tfx_members').select('space_id').eq('user_id', me).limit(1).then(function (r) {
+      return sb.from('tfa_members').select('space_id').eq('user_id', me).limit(1).then(function (r) {
         if (r.data && r.data.length) enterSpace(r.data[0].space_id);
         else showOnboard('welcome');
       });

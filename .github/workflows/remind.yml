@@ -1,4 +1,4 @@
-name: TaskForce X herinneringen
+name: TaskForce Agenda herinneringen
 
 on:
   schedule:
